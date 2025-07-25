@@ -330,7 +330,7 @@ function normalizeModelList(models: Model[]): Model[] {
 export interface ChatModelProviderConfig {
     provider: string
     model: string
-    title?: string
+    name?: string // Optional custom display name
     inputTokens?: number
     outputTokens?: number
     apiKey?: string
@@ -370,7 +370,8 @@ function getModelsFromVSCodeConfiguration({
                     options: m.options,
                 },
                 tags: baseTags,
-                title: m.title,
+                // Use 'name' if provided, otherwise use model name
+                title: m.name || m.model,
             })
             return model
         }) ?? []

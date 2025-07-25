@@ -786,7 +786,7 @@ export class ChatController implements vscode.Disposable, vscode.WebviewViewProv
         model?: string | undefined
     }): Promise<void> {
         return context.with(extractContextFromTraceparent(traceparent), () => {
-            return tracer.startActiveSpan('chat.handleUserMessage', async (span): Promise<void> => {
+            return tracer.startActiveSpan('chat.handleUserMessage', async (span: Span): Promise<void> => {
                 span.setAttribute('sampled', true)
                 span.setAttribute('continued', true)
                 outputChannelLogger.logDebug(
@@ -1466,7 +1466,7 @@ export class ChatController implements vscode.Disposable, vscode.WebviewViewProv
         inputText: PromptString,
         signal: AbortSignal
     ): Promise<void> {
-        return tracer.startActiveSpan('chat.setCustomChatTitle', async (span): Promise<void> => {
+        return tracer.startActiveSpan('chat.setCustomChatTitle', async (span: Span): Promise<void> => {
             // NOTE: Only generates a custom title if the input text is long enough.
             // We are asking the LLM to generate a title with about 10 words, so 10 words * 2 chars/word = 20 chars
             // would be a reasonable threshold to start generating a custom title. This is a heuristic and

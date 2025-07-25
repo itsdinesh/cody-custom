@@ -2,6 +2,7 @@ import {
     type AuthCredentials,
     type AuthStatus,
     type ClientCapabilitiesWithLegacyFields,
+    ClientConfigSingleton,
     DOTCOM_URL,
     type ResolvedConfiguration,
     type Unsubscribable,
@@ -18,7 +19,7 @@ import { normalizeServerEndpointURL } from '@sourcegraph/cody-shared/src/configu
 //     isInvalidAccessTokenError,
 // } from '@sourcegraph/cody-shared/src/sourcegraph-api/errors'
 import { Subject } from 'observable-fns'
-import type * as vscode from 'vscode'
+import * as vscode from 'vscode'
 import { serializeConfigSnapshot } from '../../uninstall/serializeConfig'
 import { type ResolvedConfigurationCredentialsOnly, validateCredentials } from '../auth/auth'
 // DISABLED: Logging not needed for mock auth
@@ -43,6 +44,8 @@ class AuthProvider implements vscode.Disposable {
     private hasAuthed = false
 
     private subscriptions: Unsubscribable[] = []
+    private clientConfigMocked = false
+    private mockedFunctions = new Set<string>()
 
     private initializeMockAuth(): void {
         // Use enhanced mock that provides complete AuthStatus for UI functionality
@@ -65,13 +68,35 @@ class AuthProvider implements vscode.Disposable {
 
             // Mock model preferences to eliminate endpoint dependency issues
             this.mockModelPreferencesForTesting()
+
+            // Explicitly set cody.activated context to true for mocked authentication
+            // This ensures Alt+K triggers the edit command instead of sign-in
+            this.setCodyActivatedContext()
         } catch (error) {
             // Fallback with basic mock
             mockLocalStorageAuthStatus()
             this.mockUserProductSubscriptionComprehensive()
             this.mockGraphQLOperationsForTesting()
             this.mockModelPreferencesForTesting()
+
+            // Also set context in fallback case
+            this.setCodyActivatedContext()
         }
+    }
+
+    private setCodyActivatedContext(): void {
+        // Set the context immediately and also with delays to ensure it takes effect
+        const setContext = () => {
+            try {
+                vscode.commands.executeCommand('setContext', 'cody.activated', true)
+                console.log('Successfully set cody.activated context to true for Alt+K support')
+            } catch (error) {
+                console.warn('Failed to set cody.activated context:', error)
+            }
+        }
+
+        // Set immediately
+        setContext()
     }
 
     /**
@@ -109,7 +134,7 @@ class AuthProvider implements vscode.Disposable {
                 // Mock getCurrentUserCodySubscription
                 if (
                     originalGetCurrentUserCodySubscription &&
-                    !originalGetCurrentUserCodySubscription.__mocked
+                    !this.mockedFunctions.has('getCurrentUserCodySubscription')
                 ) {
                     // Mock to return Pro subscription data
                     graphqlClientModule.graphqlClient.getCurrentUserCodySubscription = async (
@@ -120,7 +145,7 @@ class AuthProvider implements vscode.Disposable {
                             status: 'ACTIVE',
                         }
                     }
-                    graphqlClientModule.graphqlClient.getCurrentUserCodySubscription.__mocked = true
+                    this.mockedFunctions.add('getCurrentUserCodySubscription')
                     console.log(
                         'Successfully mocked GraphQL getCurrentUserCodySubscription for Pro user'
                     )
@@ -129,7 +154,7 @@ class AuthProvider implements vscode.Disposable {
                 // Mock getCurrentUserCodyProEnabled
                 if (
                     originalGetCurrentUserCodyProEnabled &&
-                    !originalGetCurrentUserCodyProEnabled.__mocked
+                    !this.mockedFunctions.has('getCurrentUserCodyProEnabled')
                 ) {
                     // Mock to return Pro user enabled status
                     graphqlClientModule.graphqlClient.getCurrentUserCodyProEnabled = async () => {
@@ -137,7 +162,7 @@ class AuthProvider implements vscode.Disposable {
                             codyProEnabled: true,
                         }
                     }
-                    graphqlClientModule.graphqlClient.getCurrentUserCodyProEnabled.__mocked = true
+                    this.mockedFunctions.add('getCurrentUserCodyProEnabled')
                     console.log('Successfully mocked GraphQL getCurrentUserCodyProEnabled for Pro user')
                 }
             }
@@ -249,15 +274,33 @@ class AuthProvider implements vscode.Disposable {
                 const originalGetSiteVersion = graphqlClientModule.graphqlClient.getSiteVersion
 
                 // Only mock if not already mocked
-                if (originalGetSiteVersion && !originalGetSiteVersion.__mocked) {
+                if (originalGetSiteVersion && !this.mockedFunctions.has('getSiteVersion')) {
                     graphqlClientModule.graphqlClient.getSiteVersion = async (signal?: AbortSignal) => {
                         // Return a mock version that works with dotcom
                         return '6.0.0'
                     }
                     // Mark as mocked to prevent double mocking
-                    graphqlClientModule.graphqlClient.getSiteVersion.__mocked = true
+                    this.mockedFunctions.add('getSiteVersion')
+                }
+
+                // Mock getCodyConfigFeatures to enable custom commands
+                const originalGetCodyConfigFeatures = graphqlClientModule.graphqlClient.getCodyConfigFeatures
+                if (originalGetCodyConfigFeatures && !this.mockedFunctions.has('getCodyConfigFeatures')) {
+                    graphqlClientModule.graphqlClient.getCodyConfigFeatures = async (signal?: AbortSignal) => {
+                        // Return config that enables all features including custom commands
+                        return {
+                            chat: true,
+                            autoComplete: true,
+                            commands: true, // This enables customCommandsEnabled
+                            attribution: false,
+                        }
+                    }
+                    this.mockedFunctions.add('getCodyConfigFeatures')
                 }
             }
+
+            // Mock ClientConfigSingleton to bypass edit feature restrictions
+            this.mockClientConfigSingleton()
 
             console.log('Successfully initialized GraphQL operation mocks')
         } catch (error) {
@@ -265,6 +308,42 @@ class AuthProvider implements vscode.Disposable {
             console.warn(
                 'Some operations may still fail with AbortError, but core functionality should work'
             )
+        }
+    }
+
+    private mockClientConfigSingleton(): void {
+        try {
+            // Only mock if not already mocked
+            if (!this.clientConfigMocked) {
+                // Mock the ClientConfigSingleton to return a config that enables custom commands
+                const clientConfigInstance = ClientConfigSingleton.getInstance()
+
+                clientConfigInstance.getConfig = async (signal?: AbortSignal) => {
+                    // Return a complete config that enables all features
+                    return {
+                        chatEnabled: true,
+                        autoCompleteEnabled: true,
+                        customCommandsEnabled: true, // This is the key flag that enables edit feature
+                        attributionEnabled: false,
+                        attribution: 'none',
+                        smartContextWindowEnabled: true,
+                        modelsAPIEnabled: true,
+                        userShouldUseEnterprise: false,
+                        notices: [],
+                        siteVersion: '6.0.0',
+                        omniBoxEnabled: true,
+                        codeSearchEnabled: true,
+                        latestSupportedCompletionsStreamAPIVersion: 1,
+                    }
+                }
+
+                // Mark as mocked to prevent double mocking
+                this.clientConfigMocked = true
+                console.log('Successfully mocked ClientConfigSingleton.getConfig to enable custom commands')
+            }
+        } catch (error) {
+            console.warn('Failed to mock ClientConfigSingleton:', error)
+            console.warn('Edit feature may still be disabled by site admin check')
         }
     }
 
@@ -281,7 +360,7 @@ class AuthProvider implements vscode.Disposable {
                 const originalSetModelPreferences = localStorage.setModelPreferences.bind(localStorage)
 
                 // Check if already mocked to prevent double-mocking
-                if (!(localStorage.getModelPreferences as any).__mocked) {
+                if (!this.mockedFunctions.has('getModelPreferences')) {
                     // Static mock preferences that work for common model selection scenarios
                     const mockPreferences = {
                         'https://sourcegraph.com/': {
@@ -306,8 +385,8 @@ class AuthProvider implements vscode.Disposable {
                     }
 
                     // Mark as mocked
-                    ;(localStorage.getModelPreferences as any).__mocked = true
-                    ;(localStorage.setModelPreferences as any).__mocked = true
+                    this.mockedFunctions.add('getModelPreferences')
+                    this.mockedFunctions.add('setModelPreferences')
 
                     console.log('Successfully mocked model preferences methods')
                 }

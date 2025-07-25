@@ -1,4 +1,4 @@
-import { SpanStatusCode } from '@opentelemetry/api'
+import { type Span, SpanStatusCode } from '@opentelemetry/api'
 
 import {
     type BrowserOrNodeResponse,
@@ -60,7 +60,7 @@ class DefaultCodeCompletionsClient implements CodeCompletionsClient {
 
         return tracer.startActiveSpan(
             `POST ${url}`,
-            async function* (span): CompletionResponseGenerator {
+            async function* (span: Span): CompletionResponseGenerator {
                 const traceId = getActiveTraceAndSpanId()?.traceId
 
                 let result: CompletionResponseWithMetaData = {

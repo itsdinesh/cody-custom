@@ -10,6 +10,7 @@ import {
     nextTick,
     tracer,
 } from '@sourcegraph/cody-shared'
+import { type Span } from '@opentelemetry/api'
 import ts from 'typescript'
 import * as vscode from 'vscode'
 import type {
@@ -359,7 +360,7 @@ export class TscRetriever implements ContextRetriever {
     }
 
     public async retrieve(options: ContextRetrieverOptions): Promise<AutocompleteContextSnippet[]> {
-        return tracer.startActiveSpan('graph-context.tsc', async span => {
+        return tracer.startActiveSpan('graph-context.tsc', async (span: Span) => {
             span.setAttribute('sampled', true)
             try {
                 const result = await this.doRetrieve(options)

@@ -5,6 +5,7 @@
 import http from 'node:http'
 import https from 'node:https'
 
+import { type Span } from '@opentelemetry/api'
 import {
     type CompletionCallbacks,
     type CompletionParameters,
@@ -51,7 +52,7 @@ export class SourcegraphNodeCompletionsClient extends SourcegraphCompletionsClie
         addClientInfoParams(url.searchParams)
         // log the temperature setting
         logDebug('temperature', `temperature: ${params.temperature}`)
-        return tracer.startActiveSpan(`POST ${url.toString()}`, async span => {
+        return tracer.startActiveSpan(`POST ${url.toString()}`, async (span: Span) => {
             span.setAttributes({
                 fast: params.fast,
                 maxTokensToSample: params.maxTokensToSample,
@@ -326,7 +327,7 @@ export class SourcegraphNodeCompletionsClient extends SourcegraphCompletionsClie
         const log = this.logger?.startCompletion(params, url.toString())
         // log the temperature setting
         logDebug('temperature', `temperature: ${params.temperature}`)
-        return tracer.startActiveSpan(`POST ${url.toString()}`, async span => {
+        return tracer.startActiveSpan(`POST ${url.toString()}`, async (span: Span) => {
             span.setAttributes({
                 fast: params.fast,
                 maxTokensToSample: params.maxTokensToSample,

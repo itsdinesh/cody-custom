@@ -2,6 +2,7 @@ import { type Rule, ruleTitle } from '@sourcegraph/cody-shared'
 import * as vscode from 'vscode'
 import type { GetItemsResult } from '../quick-pick'
 import { getItemLabel } from '../utils'
+import type { EditModelItem } from './types'
 
 export const RANGE_ITEM: vscode.QuickPickItem = {
     label: 'Range',
@@ -57,15 +58,25 @@ export const getEditInputItems = (
               DOCUMENT_ITEM,
               TEST_ITEM,
           ]
+
+    // Create a more prominent model item that shows the current model name
+    const modelItem = showModelSelector && activeModelItem
+        ? {
+            ...MODEL_ITEM,
+            label: 'Model',
+            detail: `${(activeModelItem as EditModelItem).modelTitle || activeModelItem.label}`,
+        }
+        : showModelSelector
+            ? { ...MODEL_ITEM, detail: 'Select a model' }
+            : null
+
     const editItems: vscode.QuickPickItem[] = [
         {
             label: 'edit options',
             kind: vscode.QuickPickItemKind.Separator,
         },
         { ...RANGE_ITEM, detail: getItemLabel(activeRangeItem) },
-        showModelSelector
-            ? { ...MODEL_ITEM, detail: activeModelItem ? getItemLabel(activeModelItem) : undefined }
-            : null,
+        modelItem,
         rulesToApply !== null && rulesToApply.length > 0
             ? { ...RULES_ITEM, detail: rulesToApply.map(ruleTitle).join(', ') }
             : null,

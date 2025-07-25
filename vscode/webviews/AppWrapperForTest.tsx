@@ -9,6 +9,7 @@ import {
     FILE_CONTEXT_MENTION_PROVIDER,
     FIXTURE_MODELS,
     FeatureFlag,
+    type MentionQuery,
     type ModelsData,
     type ResolvedConfiguration,
     SYMBOL_CONTEXT_MENTION_PROVIDER,
@@ -38,7 +39,7 @@ export const AppWrapperForTest: FunctionComponent<{ children: ReactNode }> = ({ 
                 provider: ExtensionAPIProviderForTestsOnly,
                 value: {
                     frequentlyUsedContextItems: () => Observable.of([]),
-                    mentionMenuData: query =>
+                    mentionMenuData: (query: MentionQuery) =>
                         promiseFactoryToObservable(async () => {
                             await new Promise<void>(resolve => setTimeout(resolve, 250))
                             const queryTextLower = query.text.toLowerCase()
@@ -73,7 +74,7 @@ export const AppWrapperForTest: FunctionComponent<{ children: ReactNode }> = ({ 
                                             ].filter(f => f.uri.path.includes(queryTextLower)),
                             }
                         }),
-                    evaluatedFeatureFlag: flag => {
+                    evaluatedFeatureFlag: (flag: FeatureFlag) => {
                         switch (flag) {
                             case FeatureFlag.CodyExperimentalPromptEditor:
                                 // Do not enable the experimental prompt editor in tests (yet).
@@ -100,7 +101,7 @@ export const AppWrapperForTest: FunctionComponent<{ children: ReactNode }> = ({ 
                     chatModels: () => Observable.of(FIXTURE_MODELS),
                     setChatModel: () => EMPTY,
                     defaultContext: () => Observable.of({ corpusContext: [], initialContext: [] }),
-                    hydratePromptMessage: text =>
+                    hydratePromptMessage: (text: string) =>
                         Observable.of(serializedPromptEditorStateFromText(text)),
                     promptsMigrationStatus: () => Observable.of({ type: 'no_migration_needed' }),
                     startPromptsMigration: () => Observable.of(),

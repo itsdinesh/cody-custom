@@ -232,9 +232,46 @@ export class EditManager implements vscode.Disposable {
             telemetryMetadata,
         } = args
 
+        // If no configuration is provided (e.g., Alt+K pressed), auto-detect from current editor state
+        let finalConfiguration = configuration
+        if (Object.keys(configuration).length === 0) {
+            const editor = getEditor()
+            const document = editor.active?.document
+            const selection = editor.active?.selection
+
+            if (document && selection) {
+                // Determine intent based on selection like the code action does
+                let intent: 'edit' | 'add' = 'edit'
+                let mode: 'edit' | 'insert' | undefined = undefined
+
+                if (selection.isEmpty) {
+                    if (document.lineAt(selection.start.line).isEmptyOrWhitespace) {
+                        // Empty selection and empty line, use generate/add intent
+                        intent = 'add'
+                        mode = 'insert'
+                    } else {
+                        // Empty selection but non-empty line, use edit intent
+                        intent = 'edit'
+                    }
+                } else {
+                    // Non-empty selection, use edit intent
+                    intent = 'edit'
+                }
+
+                finalConfiguration = {
+                    range: new vscode.Range(selection.start, selection.end),
+                    intent,
+                    document,
+                    ...(mode && { mode }),
+                    // Explicitly set instruction to undefined to force the quick pick UI
+                    instruction: undefined,
+                }
+            }
+        }
+
         const task = await this.createEditTask({
-            configuration,
-            source,
+            configuration: finalConfiguration,
+            source: Object.keys(configuration).length === 0 ? 'editor' : source,
             telemetryMetadata,
         })
 

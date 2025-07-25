@@ -1,4 +1,4 @@
-import { type DefaultContext, FIXTURE_MODELS } from '@sourcegraph/cody-shared'
+import { type DefaultContext, FIXTURE_MODELS, FeatureFlag } from '@sourcegraph/cody-shared'
 import { ExtensionAPIProviderForTestsOnly, MOCK_API } from '@sourcegraph/prompt-editor'
 import type { Meta, StoryObj } from '@storybook/react'
 import { Observable } from 'observable-fns'
@@ -57,7 +57,7 @@ export const EmptyWithPromptLibraryUnsupported: StoryObj<typeof meta> = {
                     prompts: [],
                     commands: FIXTURE_COMMANDS,
                 }),
-                evaluatedFeatureFlag: _flag => Observable.of(true),
+                evaluatedFeatureFlag: (_flag: FeatureFlag) => Observable.of(true),
             }}
         >
             <Chat {...args} />
@@ -78,7 +78,7 @@ export const EmptyWithNoPrompts: StoryObj<typeof meta> = {
                     prompts: [],
                     commands: FIXTURE_COMMANDS,
                 }),
-                evaluatedFeatureFlag: _flag => Observable.of(true),
+                evaluatedFeatureFlag: (_flag: FeatureFlag) => Observable.of(true),
             }}
         >
             <Chat {...args} />

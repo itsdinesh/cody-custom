@@ -1,4 +1,4 @@
-import { SpanStatusCode } from '@opentelemetry/api'
+import { type Span, SpanStatusCode } from '@opentelemetry/api'
 
 import {
     type CodeCompletionsParams,
@@ -65,7 +65,7 @@ export function createFastPathClient(
     const url = fireworksConfig ? fireworksConfig.url : `${gatewayUrl}/v1/completions/fireworks`
     const log = logger?.startCompletion(requestParams, url)
 
-    return tracer.startActiveSpan(`POST ${url}`, async function* (span): CompletionResponseGenerator {
+    return tracer.startActiveSpan(`POST ${url}`, async function* (span: Span): CompletionResponseGenerator {
         const traceId = getActiveTraceAndSpanId()?.traceId
         let result: CompletionResponseWithMetaData = {
             completionResponse: undefined,

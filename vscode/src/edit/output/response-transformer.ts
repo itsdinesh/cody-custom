@@ -43,11 +43,26 @@ const LEADING_SPACES = /^[ ]+/
  * This includes:
  * 1. Prompt topics, e.g. <CODE511>. These are used by the LLM to wrap the output code.
  * 2. Markdown code blocks, e.g. ```typescript. Most LLMs are trained to produce Markdown-suitable responses.
+ * 3. Thinking tags, e.g. <think>/<think>. These can appear in various model responses.
  */
 function stripText(text: string, task: FixupTask): string {
-    const strippedText = text
+    let strippedText = text
         // Strip specific XML tags referenced in the prompt, e.g. <CODE511>
         .replaceAll(PROMPT_TOPIC_REGEX, '')
+
+    // Strip thinking tags and any trailing whitespace they create
+    // This handles cases where models leave <think>/<think> tags in responses
+    strippedText = strippedText
+        // Remove opening think tags with surrounding whitespace
+        .replace(/^\s*<think>\s*/g, '')
+        // Remove closing think tags with surrounding whitespace and blank lines
+        .replace(/\s*<\/think>\s*(\n\s*)*$/g, '')
+        // Remove any remaining think tags in the middle of content
+        .replace(/<\/?think>/g, '')
+        // Remove think tags that appear in code blocks
+        .replace(/```\s*<\/think>\s*```/g, '')
+        // Clean up any extra blank lines that might be left behind
+        .replace(/\n\s*\n\s*$/g, '\n')
 
     if (task.document.languageId === 'markdown') {
         // Return this text as is, we do not want to strip Markdown blocks as they may be valuable

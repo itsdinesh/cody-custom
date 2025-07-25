@@ -8,9 +8,29 @@
     "jsx": "react-jsx",
     "allowJs": true,
     "emitDeclarationOnly": true,
-    "lib": ["ESNext", "DOM"],
+    "lib": [
+      "ESNext",
+      "DOM"
+    ],
   },
-  "include": ["lib", "demo", "globals.d.ts"],
-  "exclude": ["dist", "./vitest.config.mts"],
-  "references": [{"path": "../agent"}, { "path": "../lib/shared" }, {"path": "../vscode"}],
+  "include": [
+    "lib",
+    "demo",
+    "globals.d.ts"
+  ],
+  "exclude": [
+    "dist",
+    "./vitest.config.mts"
+  ],
+  "references": [
+    {
+      "path": "../agent"
+    },
+    {
+      "path": "../lib/shared"
+    },
+    {
+      "path": "../vscode"
+    }
+  ],
 }

@@ -96,7 +96,7 @@ jobs:
           npm_config_target_arch: ${{ matrix.npm_config_target_arch }}
 
       - name: Upload extension artifact
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: cody-${{ matrix.platform }}-${{ matrix.arch }}
           path: cody-${{ matrix.platform }}-${{ matrix.arch }}.vsix
@@ -154,7 +154,7 @@ jobs:
           vsce package --no-dependencies --out ../cody-universal.vsix
 
       - name: Upload universal extension artifact
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: cody-universal
           path: cody-universal.vsix

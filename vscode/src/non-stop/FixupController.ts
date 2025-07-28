@@ -1076,6 +1076,12 @@ export class FixupController
             this.discard(task)
             return
         }
+        
+        // Immediately refresh code lenses for critical state transitions
+        if (task.state === CodyTaskState.Applied || task.state === CodyTaskState.Error) {
+            this.refreshCodeLenses(task)
+        }
+        
         // Save states of the task
         this.controlApplicator.didUpdateTask(task)
 

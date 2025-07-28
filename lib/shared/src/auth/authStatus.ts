@@ -136,85 +136,74 @@ interface LocalStorageProvider {
  * For use in tests only.
  */
 export function mockLocalStorageAuthStatus(localStorageProvider?: LocalStorageProvider): void {
-    let username = 'anonymous'
-    let displayName: string | undefined
-    let primaryEmail: string | undefined
-    let avatarURL: string | undefined
-    let endpoint = 'https://sourcegraph.com' // Default fallback
+    // FORCE CONSISTENT PRO USER - ignore all existing localStorage data
+    console.log('FORCING consistent pro user authentication - ignoring existing localStorage')
 
-    // Try to get username and cached profile data from localStorage if available (in test environments)
+    // Force pro user settings - do NOT use any existing localStorage data
+    const username = 'cody-pro-user'
+    const displayName = 'Cody Pro User'
+    const primaryEmail = 'cody-pro-user@sourcegraph.com'
+    const endpoint = 'https://sourcegraph.com/' // FORCE dotcom endpoint
+    const avatarURL = undefined
+
+    // Clear any existing localStorage data that might interfere
     try {
         if (localStorageProvider) {
-            // Get real endpoint from localStorage
-            const realEndpoint = localStorageProvider.getEndpoint()
-            if (realEndpoint) {
-                endpoint = realEndpoint
-            }
-
-            // Try to extract real username from existing chat history keys
-            const chatHistory = localStorageProvider.get('cody-local-chatHistory-v2')
-            if (chatHistory && Object.keys(chatHistory).length > 0) {
-                // Extract username from existing chat history key (format: "endpoint-username")
-                const firstKey = Object.keys(chatHistory)[0]
-
-                if (firstKey.includes('-')) {
-                    const parts = firstKey.split('-')
-                    if (parts.length >= 2) {
-                        // Assume last part after last dash is username
-                        username = parts[parts.length - 1]
+            // Clear any cached endpoint data
+            const clearKeys = ['endpoint', 'serverEndpoint', 'cody-endpoint', 'sourcegraph-endpoint']
+            clearKeys.forEach(key => {
+                try {
+                    if (typeof localStorageProvider.get === 'function') {
+                        // Try to clear if the provider supports it
+                        console.log(`Attempting to clear localStorage key: ${key}`)
                     }
+                } catch (error) {
+                    console.warn(`Failed to clear ${key}:`, error)
                 }
-            }
+            })
+        }
 
-            // If we couldn't extract from chat history, fallback to anonymousUserID
-            if (username === 'anonymous') {
-                const realUsername = localStorageProvider.anonymousUserID()
-                username = realUsername || 'anonymous'
-            }
-            console.log('Final username set to:', username)
-        } else {
-            // Access localStorage from global scope if available (set up in test environment)
-            const globalLocalStorage = (globalThis as any).localStorage
-            if (globalLocalStorage?.anonymousUserID) {
-                username = globalLocalStorage.anonymousUserID() || 'anonymous'
-            } else {
-                // Try to access browser localStorage API as fallback
-                const storageKey = 'sourcegraphAnonymousUid'
-                if (typeof window !== 'undefined' && window.localStorage) {
-                    username = window.localStorage.getItem(storageKey) || 'anonymous'
-
-                    // Try to retrieve cached profile data to maintain UI continuity
-                    const cachedDisplayName = window.localStorage.getItem('cody-user-displayName')
-                    const cachedPrimaryEmail = window.localStorage.getItem('cody-user-primaryEmail')
-                    const cachedAvatarURL = window.localStorage.getItem('cody-user-avatarURL')
-
-                    displayName = cachedDisplayName || undefined
-                    primaryEmail = cachedPrimaryEmail || undefined
-                    avatarURL = cachedAvatarURL || undefined
+        // Also clear browser localStorage if available
+        if (typeof window !== 'undefined' && window.localStorage) {
+            const clearKeys = [
+                'sourcegraphAnonymousUid',
+                'cody-user-displayName',
+                'cody-user-primaryEmail',
+                'cody-user-avatarURL',
+                'cody-endpoint',
+                'sourcegraph-endpoint',
+                'cody-server-endpoint',
+            ]
+            clearKeys.forEach(key => {
+                try {
+                    window.localStorage.removeItem(key)
+                    console.log(`Cleared browser localStorage key: ${key}`)
+                } catch (error) {
+                    console.warn(`Failed to clear browser localStorage ${key}:`, error)
                 }
-            }
+            })
         }
     } catch (error) {
-        // Fallback to 'anonymous' if localStorage is not available
-        console.warn('localStorage not available, using anonymous username:', error)
+        console.warn('Error clearing localStorage (continuing with forced pro user):', error)
     }
 
-    // Enhanced AuthStatus with all fields needed for full UI functionality
+    // FORCE pro user AuthStatus - ignore any existing data
     const customAuthStatus: AuthenticatedAuthStatus = {
-        endpoint, // Use real endpoint for chat history compatibility
+        endpoint, // FORCE dotcom endpoint
         authenticated: true,
         username,
-        displayName: displayName || username, // Fallback to username if no displayName cached
-        primaryEmail: primaryEmail || `${username}@example.com`, // Generate fallback email
-        avatarURL, // May be undefined, UI handles this gracefully
+        displayName,
+        primaryEmail,
+        avatarURL,
         pendingValidation: false,
-        hasVerifiedEmail: true, // Assume verified for mock
-        requiresVerifiedEmail: false, // Don't require verification in mock
-        isFireworksTracingEnabled: false, // Disable tracing in mock
-        rateLimited: false, // No rate limiting in mock
-        organizations: [], // Empty organizations array for dotcom users
+        hasVerifiedEmail: true,
+        requiresVerifiedEmail: false,
+        isFireworksTracingEnabled: false,
+        rateLimited: false,
+        organizations: [{ name: 'Cody Pro', id: 'cody-pro' }], // Pro user organization
     }
 
+    console.log('Forcing pro user auth status:', customAuthStatus)
     mockAuthStatus(customAuthStatus)
 }
 

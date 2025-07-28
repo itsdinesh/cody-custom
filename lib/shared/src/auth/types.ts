@@ -56,14 +56,21 @@ export interface UnauthenticatedAuthStatus {
 }
 
 export const AUTH_STATUS_FIXTURE_AUTHED: AuthenticatedAuthStatus = {
-    endpoint: 'https://example.com',
+    endpoint: 'https://sourcegraph.com/', // FORCE dotcom endpoint for pro user
     authenticated: true,
-    username: 'alice',
+    username: 'cody-pro-user', // Use consistent pro user
+    displayName: 'Cody Pro User',
+    primaryEmail: 'cody-pro-user@sourcegraph.com',
     pendingValidation: false,
+    hasVerifiedEmail: true,
+    requiresVerifiedEmail: false,
+    isFireworksTracingEnabled: false,
+    rateLimited: false,
+    organizations: [{ name: 'Cody Pro', id: 'cody-pro' }],
 }
 
 export const AUTH_STATUS_FIXTURE_UNAUTHED: AuthStatus & { authenticated: false } = {
-    endpoint: 'https://example.com',
+    endpoint: 'https://sourcegraph.com/', // FORCE dotcom endpoint
     authenticated: false,
     pendingValidation: false,
 }

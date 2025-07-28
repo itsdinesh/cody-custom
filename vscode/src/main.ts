@@ -276,6 +276,10 @@ const register = async (
         disposables
     )
     const fixupController = new FixupController(platform.extensionClient)
+    
+    // Make FixupController globally available for fallback commands
+    ;(global as any).fixupController = fixupController
+    
     const ghostHintDecorator = new GhostHintDecorator({ fixupController })
     const editManager = new EditManager({
         chatClient,

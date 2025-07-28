@@ -47,6 +47,29 @@ class AuthProvider implements vscode.Disposable {
     private clientConfigMocked = false
     private mockedFunctions = new Set<string>()
 
+    private emitImmediateAuthStatus(): void {
+        // Emit authenticated status immediately to prevent loading delays
+        const immediateAuthStatus: AuthStatus = {
+            authenticated: true,
+            endpoint: DOTCOM_URL.toString(),
+            pendingValidation: false,
+            username: 'cody-pro-user',
+            displayName: 'Cody Pro User',
+            avatarURL: '',
+            primaryEmail: 'cody@sourcegraph.com',
+            hasVerifiedEmail: true,
+        }
+        
+        // Emit immediately and set up the observable
+        this.status.next(immediateAuthStatus)
+        setAuthStatusObservable_(this.status.pipe())
+        
+        // Set VS Code context immediately
+        this.setCodyActivatedContext()
+        
+        console.log('Immediate auth status emitted for fast startup')
+    }
+
     private initializeMockAuth(): void {
         // Use enhanced mock that provides complete AuthStatus for UI functionality
         // Initial setup with fallback
@@ -273,9 +296,15 @@ class AuthProvider implements vscode.Disposable {
                 }
 
                 // Mock getCodyConfigFeatures to enable custom commands
-                const originalGetCodyConfigFeatures = graphqlClientModule.graphqlClient.getCodyConfigFeatures
-                if (originalGetCodyConfigFeatures && !this.mockedFunctions.has('getCodyConfigFeatures')) {
-                    graphqlClientModule.graphqlClient.getCodyConfigFeatures = async (signal?: AbortSignal) => {
+                const originalGetCodyConfigFeatures =
+                    graphqlClientModule.graphqlClient.getCodyConfigFeatures
+                if (
+                    originalGetCodyConfigFeatures &&
+                    !this.mockedFunctions.has('getCodyConfigFeatures')
+                ) {
+                    graphqlClientModule.graphqlClient.getCodyConfigFeatures = async (
+                        signal?: AbortSignal
+                    ) => {
                         // Return config that enables all features including custom commands
                         return {
                             chat: true,
@@ -328,7 +357,9 @@ class AuthProvider implements vscode.Disposable {
 
                 // Mark as mocked to prevent double mocking
                 this.clientConfigMocked = true
-                console.log('Successfully mocked ClientConfigSingleton.getConfig to enable custom commands')
+                console.log(
+                    'Successfully mocked ClientConfigSingleton.getConfig to enable custom commands'
+                )
             }
         } catch (error) {
             console.warn('Failed to mock ClientConfigSingleton:', error)
@@ -417,9 +448,14 @@ class AuthProvider implements vscode.Disposable {
     } */
 
     constructor(setAuthStatusObservable = setAuthStatusObservable_, resolvedConfig = resolvedConfig_) {
-        // PERMANENT MOCK AUTHENTICATION - replaces all real authentication logic
-        // Initialize mock auth immediately - will use fallback username if localStorage not ready
-        this.initializeMockAuth()
+        // IMMEDIATE MOCK AUTHENTICATION - emit auth status instantly to prevent loading delays
+        this.emitImmediateAuthStatus()
+        
+        // Initialize remaining mock components asynchronously to avoid blocking startup
+        setTimeout(() => {
+            this.initializeMockAuth()
+            this.registerFallbackEditCommand()
+        }, 0)
 
         // Real authentication logic is permanently disabled
         // All code below is commented out to prevent real authentication
@@ -629,6 +665,136 @@ class AuthProvider implements vscode.Disposable {
 
     private setHasAuthenticatedBefore() {
         return localStorage.set(HAS_AUTHENTICATED_BEFORE_KEY, 'true')
+    }
+
+    private registerFallbackEditCommand(): void {
+        // Register fallback edit command immediately without checking existing commands
+        // This ensures Alt+K works instantly even if main command registration is delayed
+        try {
+            vscode.commands.registerCommand('cody.command.edit-code', async (args?: any) => {
+                console.log('Fallback edit command triggered with args:', args)
+
+                // Get configured models from cody.dev.models
+                const config = vscode.workspace.getConfiguration('cody')
+                const devModels = config.get('dev.models', [])
+
+                if (devModels.length === 0) {
+                    vscode.window
+                        .showWarningMessage(
+                            'No models configured in cody.dev.models. Please configure your models in settings.',
+                            'Open Settings'
+                        )
+                        .then(selection => {
+                            if (selection === 'Open Settings') {
+                                vscode.commands.executeCommand(
+                                    'workbench.action.openSettings',
+                                    'cody.dev.models'
+                                )
+                            }
+                        })
+                    return
+                }
+
+                // Show model selection quick pick
+                const modelItems = devModels.map((model: any) => ({
+                    label: model.model || 'Unknown Model',
+                    description: `Provider: ${model.provider || 'Unknown'}`,
+                    detail: model.title || model.model,
+                    model: model,
+                }))
+
+                const selectedModel = await vscode.window.showQuickPick(modelItems, {
+                    placeHolder: 'Select a model for editing',
+                    matchOnDescription: true,
+                    matchOnDetail: true,
+                })
+
+                if (!selectedModel) {
+                    return
+                }
+
+                console.log('Selected model for edit:', selectedModel.model)
+
+                // Get the active editor and selection
+                const editor = vscode.window.activeTextEditor
+                if (!editor) {
+                    vscode.window.showErrorMessage('No active editor found')
+                    return
+                }
+
+                const selection = editor.selection
+                const selectedText = editor.document.getText(selection)
+
+                // Prompt for edit instruction
+                const instruction = await vscode.window.showInputBox({
+                    prompt: 'Enter your edit instruction',
+                    placeHolder: 'e.g., "Add error handling", "Refactor this function", etc.',
+                    value: '',
+                })
+
+                if (!instruction) {
+                    return
+                }
+
+                console.log('Edit instruction:', instruction)
+                console.log('Selected text length:', selectedText.length)
+
+                // Try to access the global FixupController if available
+                try {
+                    const { executeEdit } = require('../edit/execute')
+                    
+                    await executeEdit({
+                        configuration: {
+                            range: selection,
+                            instruction: instruction,
+                            userContextFiles: [],
+                            document: editor.document,
+                            intent: 'edit',
+                            mode: 'edit',
+                            model: selectedModel.model.model || selectedModel.model,
+                        },
+                        source: 'command-palette',
+                    })
+                    
+                    console.log('Edit executed successfully via executeEdit')
+                } catch (executeError) {
+                    console.warn('executeEdit failed, trying FixupController:', executeError)
+                    
+                    // Fallback to direct FixupController access
+                    try {
+                        const globalFixupController = (global as any).fixupController
+                        if (globalFixupController) {
+                            const task = globalFixupController.createTask({
+                                document: editor.document,
+                                instruction: instruction,
+                                userContextFiles: [],
+                                selectionRange: selection,
+                                intent: 'edit',
+                                isStreamed: false,
+                                mode: 'edit',
+                                model: selectedModel.model.model || selectedModel.model,
+                                rules: null,
+                                source: 'command-palette',
+                            })
+                            
+                            globalFixupController.startTask(task)
+                            console.log('Edit task created via global FixupController')
+                        } else {
+                            throw new Error('Global FixupController not available')
+                        }
+                    } catch (controllerError) {
+                        console.error('Both executeEdit and FixupController failed:', controllerError)
+                        vscode.window.showErrorMessage(
+                            `Failed to execute edit: ${controllerError instanceof Error ? controllerError.message : String(controllerError)}`
+                        )
+                    }
+                }
+            })
+            
+            console.log('Fallback edit command registered successfully')
+        } catch (error) {
+            console.error('Failed to register fallback edit command:', error)
+        }
     }
 
     // When the auth status is updated, we serialize the current configuration to disk,
